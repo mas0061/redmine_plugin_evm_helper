@@ -28,9 +28,9 @@ class ExportCsvWithEvmController < ApplicationController
       end
 
       # for debug
-      # csv_data.each_line do |line|
-      #   puts line.force_encoding(Encoding::Shift_JIS)
-      # end
+      csv_data.each_line do |line|
+        puts line.force_encoding(Encoding::Shift_JIS)
+      end
 
       send_data(csv_data, :type => 'text/csv; header=present', :filename => 'issues_w_evm.csv')
     end
@@ -41,10 +41,12 @@ class ExportCsvWithEvmController < ApplicationController
 
     Redmine::Export::CSV.generate do |csv|
       # add EVM header to default method
-      csv << (columns.map {|c| c.caption.to_s} + ['PV', 'EV', 'AC', 'BAC'])
+      csv << (columns.map {|c| c.caption.to_s} + ['開始日（実績）', '終了日（実績）', 'PV', 'EV', 'AC', 'BAC'])
       # add EVM value to default method
       items.each do |item|
-        csv << (columns.map {|c| csv_content(c, item)} + calc_evm_to_array(item))
+        p item
+        csv << (columns.map {|c| csv_content(c, item)} + ['ここに実績開始日'] + [item.closed_on || ''] + calc_evm_to_array(item))
+        search_journals(item)
       end
     end
   end
@@ -71,5 +73,18 @@ class ExportCsvWithEvmController < ApplicationController
     end
 
     [pv, ev, ac, bac]
+  end
+
+  def search_journals(issue)
+    # [#<JournalDetail id: 8, journal_id: 5, property: "attr", prop_key: "status_id", old_value: "1", value: "2">]
+    # 進行中にした日 ： JournalDetailを逆順に見て、prop_key = "status_id" && value = "2" があった Journalのcreated_on
+    journals = issue.visible_journals_with_index
+
+    puts "#########################"
+    journals.each do |journal|
+      p journal
+      p journal.visible_details
+    end
+    puts "#########################"
   end
 end
