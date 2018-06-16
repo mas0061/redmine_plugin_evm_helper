@@ -52,24 +52,29 @@ class ExportCsvWithEvmController < ApplicationController
   end
 
   def calc_evm_to_array(issue)
-    bac = issue.total_estimated_hours
-    ac = issue.total_spent_hours
+    bac = issue.total_estimated_hours || 0
+    ac = issue.total_spent_hours || 0
+    done_ratio = issue.done_ratio || 0
 
     if issue.closed? then
       ev = bac
     else
-      ev = (bac * (issue.done_ratio * 0.01)).round(2)
+      ev = (bac * (done_ratio * 0.01)).round(2)
     end
 
-    term = issue.due_date - issue.start_date
-    now_diff = Date.today - issue.start_date
-
-    if now_diff > term then
-      pv = bac
-    elsif now_diff < 0 then
-      pv = 0
+    if !issue.start_date.nil? && !issue.due_date.nil? then
+      term = issue.due_date - issue.start_date
+      now_diff = Date.today - issue.start_date
+  
+      if now_diff > term then
+        pv = bac
+      elsif now_diff < 0 then
+        pv = 0
+      else
+        pv = ((bac / term) * now_diff).round(2)
+      end
     else
-      pv = ((bac / term) * now_diff).round(2)
+      pv = 0
     end
 
     [pv, ev, ac, bac]
