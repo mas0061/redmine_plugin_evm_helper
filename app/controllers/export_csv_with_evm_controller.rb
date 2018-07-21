@@ -9,6 +9,7 @@ class ExportCsvWithEvmController < ApplicationController
   helper :projects
   helper :queries
   include QueriesHelper
+  include Redmine::I18n
 
   def index
     @project = Project.find(params[:project_id])
@@ -28,9 +29,9 @@ class ExportCsvWithEvmController < ApplicationController
       end
 
       # for debug
-      csv_data.each_line do |line|
-        puts line.force_encoding(Encoding::Shift_JIS)
-      end
+      # csv_data.each_line do |line|
+      #   puts line.force_encoding(Encoding::Shift_JIS)
+      # end
 
       send_data(csv_data, :type => 'text/csv; header=present', :filename => 'issues_w_evm.csv')
     end
@@ -44,9 +45,9 @@ class ExportCsvWithEvmController < ApplicationController
       csv << (columns.map {|c| c.caption.to_s} + ['開始日（実績）', '終了日（実績）', 'PV', 'EV', 'AC', 'BAC'])
       # add EVM value to default method
       items.each do |item|
-        p item
-        csv << (columns.map {|c| csv_content(c, item)} + ['ここに実績開始日'] + [item.closed_on || ''] + calc_evm_to_array(item))
-        search_journals(item)
+        # p item
+        closed_date = item.closed_on.nil? ? nil : format_date(item.closed_on.to_date)
+        csv << (columns.map {|c| csv_content(c, item)} + [search_journals(item), closed_date] + calc_evm_to_array(item))
       end
     end
   end
@@ -55,12 +56,7 @@ class ExportCsvWithEvmController < ApplicationController
     bac = issue.total_estimated_hours || 0
     ac = issue.total_spent_hours || 0
     done_ratio = issue.done_ratio || 0
-
-    if issue.closed? then
-      ev = bac
-    else
-      ev = (bac * (done_ratio * 0.01)).round(2)
-    end
+    ev = issue.closed? ? bac : (bac * (done_ratio * 0.01)).round(2)
 
     if !issue.start_date.nil? && !issue.due_date.nil? then
       term = issue.due_date - issue.start_date
@@ -81,15 +77,20 @@ class ExportCsvWithEvmController < ApplicationController
   end
 
   def search_journals(issue)
-    # [#<JournalDetail id: 8, journal_id: 5, property: "attr", prop_key: "status_id", old_value: "1", value: "2">]
-    # 進行中にした日 ： JournalDetailを逆順に見て、prop_key = "status_id" && value = "2" があった Journalのcreated_on
     journals = issue.visible_journals_with_index
+    actual_start_date = nil
 
-    puts "#########################"
-    journals.each do |journal|
-      p journal
-      p journal.visible_details
+    journals.reverse_each do |journal|
+      # p journal
+      # p journal.visible_details
+      actual_start_date = journal.visible_details.reverse.find { |detail| detail.prop_key == "status_id" && detail.value == "2"}
+      if !actual_start_date.nil? then
+        actual_start_date = format_date(journal.created_on.to_date)
+        break
+      end
     end
-    puts "#########################"
+    # puts actual_start_date
+
+    actual_start_date
   end
 end
