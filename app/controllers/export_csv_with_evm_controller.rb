@@ -80,10 +80,10 @@ class ExportCsvWithEvmController < ApplicationController
     journals = issue.visible_journals_with_index
     actual_start_date = nil
 
-    journals.reverse_each do |journal|
+    journals.each do |journal|
       # p journal
       # p journal.visible_details
-      actual_start_date = journal.visible_details.reverse.find { |detail| detail.prop_key == "status_id" && detail.value == "2"}
+      actual_start_date = journal.visible_details.find { |detail| detail.prop_key == "status_id" && detail.value == "2" && detail.old_value == "1"}
       if !actual_start_date.nil? then
         actual_start_date = format_date(journal.created_on.to_date)
         break
